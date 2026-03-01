@@ -574,9 +574,9 @@ def process_file(input_path, args):
     # Output paths
     dt = header.get("datetime")
     if dt:
-        stem = dt.strftime("%Y-%m-%d_%H%M") + "_dive"
+        stem = dt.strftime("%Y-%m-%d_%H%M")
     else:
-        stem = input_path.stem + "_dive"
+        stem = input_path.stem
 
     out_dir = Path(args.output_dir) if args.output_dir else input_path.parent
     out_dir.mkdir(parents=True, exist_ok=True)
