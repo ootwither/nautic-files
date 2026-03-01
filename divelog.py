@@ -88,6 +88,7 @@ def extract_fit_data(fit_path):
         "surface_interval": None,
         "end_cns": None,
         "o2_toxicity": None,
+        "product_name": None,
     }
 
     try:
@@ -107,6 +108,12 @@ def extract_fit_data(fit_path):
                 fields = {f.name: f.value for f in msg.fields}
                 result["gf_low"] = fields.get("gf_low")
                 result["gf_high"] = fields.get("gf_high")
+
+            elif msg.name == "device_info":
+                fields = {f.name: f.value for f in msg.fields}
+                pn = fields.get("product_name")
+                if pn and isinstance(pn, str):
+                    result["product_name"] = pn
 
             elif msg.name == "session":
                 for f in msg.fields:
@@ -304,7 +311,7 @@ def generate_markdown(header, samples, fit_data, gas_label, sac_rate,
     dt = header["datetime"]
     date_str = dt.strftime("%Y-%m-%d") if dt else "Unknown"
     title_date = dt.strftime("%d %b %Y, %H:%M") if dt else "Unknown"
-    device = header.get("device_name", "Unknown")
+    device = (fit_data.get("product_name") if fit_data else None) or header.get("device_name", "Unknown")
 
     lines = []
 
