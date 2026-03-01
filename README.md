@@ -1,5 +1,7 @@
 Extremely quick and dirty vibe-coded dive log parser for files from the SUUNTO Nautic.
 
+Designed to output a .md file that can be dropped into Obsidian.
+
 # Installation:
 
 Clone the repo and run:
