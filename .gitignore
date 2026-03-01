@@ -3,3 +3,4 @@
 .venv/
 *.png
 *.md
+!README.md
