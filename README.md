@@ -6,7 +6,7 @@ Clone the repo and run:
 pip install .
 from the project directory.
 
-Usage:
+# Usage:
 
 # Single dive (auto-detects paired .fit file)
 divelog.py some_dive.json
