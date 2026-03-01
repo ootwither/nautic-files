@@ -1,0 +1,5 @@
+*.fit
+*.json
+.venv/
+*.png
+*.md
