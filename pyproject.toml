@@ -1,0 +1,12 @@
+[project]
+name = "divelog"
+version = "0.1.0"
+description = "Convert Suunto dive computer exports to Obsidian markdown dive logs"
+requires-python = ">=3.9"
+dependencies = [
+    "matplotlib",
+    "fitparse",
+]
+
+[project.scripts]
+divelog = "divelog:main"
