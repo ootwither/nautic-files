@@ -192,6 +192,7 @@ def extract_samples(data):
     events = []
     no_dec_times = []
     ceilings = []
+    dive_end_elapsed = None  # timestamp when dive ends (DiveStatus: False)
 
     for s in samples:
         if "TimeISO8601" not in s:
@@ -199,6 +200,12 @@ def extract_samples(data):
 
         t = datetime.fromisoformat(s["TimeISO8601"])
         elapsed = (t - t0).total_seconds()
+
+        # Track dive end time
+        if "DiveEvents" in s:
+            ev = s["DiveEvents"]
+            if ev.get("DiveStatus") is False:
+                dive_end_elapsed = elapsed
 
         # Depth from absolute pressure
         if "AbsPressure" in s:
@@ -263,10 +270,19 @@ def extract_samples(data):
             alarm_type = desc.replace("Alarm: ", "").replace(" triggered", "")
             alarms.append((elapsed, alarm_type))
 
+    # Pair each pressure reading with the nearest depth (for surface artefact filtering)
+    tank_pressure_with_depth = []
+    for tp_elapsed, tp_bar in tank_pressure:
+        nearest_depth = 0.0
+        if depth_profile:
+            nearest_depth = min(depth_profile, key=lambda d: abs(d[0] - tp_elapsed))[1]
+        tank_pressure_with_depth.append((tp_elapsed, tp_bar, nearest_depth))
+
     return {
         "depth_profile": depth_profile,
         "temperature": temperature,
         "tank_pressure": tank_pressure,
+        "tank_pressure_with_depth": tank_pressure_with_depth,
         "events": events,
         "no_dec_times": no_dec_times,
         "ceilings": ceilings,
@@ -276,12 +292,39 @@ def extract_samples(data):
         "temp_max": temp_max,
         "was_deco": was_deco,
         "alarms": alarms,
+        "dive_end_elapsed": dive_end_elapsed,
     }
 
 
 # ---------------------------------------------------------------------------
 # Calculations
 # ---------------------------------------------------------------------------
+
+def get_dive_pressures(samples):
+    """Get start and end tank pressure, filtering out surface artefacts.
+
+    The tank transmitter shows a ~1 ATM pressure cliff when surfacing.
+    The computer's displayed end pressure matches the last reading while
+    still submerged, so we use the last pressure reading at depth > 0.5m.
+    """
+    tpwd = samples.get("tank_pressure_with_depth", [])
+
+    if tpwd:
+        start_bar = tpwd[0][1]
+        # Last reading while still submerged
+        submerged = [(t, p, d) for t, p, d in tpwd if d > 0.5]
+        if submerged:
+            end_bar = submerged[-1][1]
+        else:
+            end_bar = tpwd[-1][1]
+        return start_bar, end_bar
+
+    # Fallback: no depth-paired data
+    tp = samples["tank_pressure"]
+    if not tp:
+        return None, None
+    return tp[0][1], tp[-1][1]
+
 
 def calc_sac_rate(avg_depth, dive_time_s, start_bar, end_bar, tank_volume_l=12.0):
     """Calculate Surface Air Consumption rate in litres/min."""
@@ -366,8 +409,7 @@ def generate_markdown(header, samples, fit_data, gas_label, sac_rate,
     lines.append("")
 
     # Gas table
-    start_bar = samples["tank_pressure"][0][1] if samples["tank_pressure"] else None
-    end_bar = samples["tank_pressure"][-1][1] if samples["tank_pressure"] else None
+    start_bar, end_bar = get_dive_pressures(samples)
 
     if gas_label or start_bar is not None:
         lines.append("## Gas")
@@ -562,8 +604,7 @@ def process_file(input_path, args):
         gas_label = "Air (21% O2)"
 
     # Calculate SAC rate
-    start_bar = samples["tank_pressure"][0][1] if samples["tank_pressure"] else None
-    end_bar = samples["tank_pressure"][-1][1] if samples["tank_pressure"] else None
+    start_bar, end_bar = get_dive_pressures(samples)
     sac_rate = calc_sac_rate(
         header.get("avg_depth"),
         header.get("dive_time"),
